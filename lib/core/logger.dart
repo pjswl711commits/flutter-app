@@ -10,6 +10,6 @@ void logd(String tag, String message) {
 /// Shows just enough of a secret to tell tokens apart without leaking them.
 String maskToken(String? token) {
   if (token == null || token.isEmpty) return 'null';
-  if (token.length <= 12) return '***';
-  return '$token (len ${token.length})';
+  if (token.length <= 8) return '***';
+  return '${token.substring(0, 4)}...${token.substring(token.length - 4)}';
 }

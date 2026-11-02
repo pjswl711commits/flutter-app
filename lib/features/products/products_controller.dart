@@ -21,6 +21,7 @@ class ProductsController extends ChangeNotifier {
 
   bool isGrid = false;
   final Set<int> favorites = {};
+  int _requestId = 0;
 
   void setGrid(bool value) {
     if (isGrid == value) return;
@@ -38,7 +39,9 @@ class ProductsController extends ChangeNotifier {
   /// Loads the first page. Keeps existing items visible if a refresh fails.
   Future<void> refresh() async {
     if (loading) return;
+    final requestId = ++_requestId;
     loading = true;
+    loadingMore = false;
     error = null;
     moreError = null;
     notifyListeners();
@@ -48,20 +51,25 @@ class ProductsController extends ChangeNotifier {
         limit: pageSize,
         token: _token,
       );
+      if (_requestId != requestId) return;
       items
         ..clear()
         ..addAll(page.products);
       _total = page.total;
     } on ApiException catch (e) {
+      if (_requestId != requestId) return;
       error = e.message;
     } finally {
-      loading = false;
-      notifyListeners();
+      if (_requestId == requestId) {
+        loading = false;
+        notifyListeners();
+      }
     }
   }
 
   Future<void> loadMore() async {
     if (loading || loadingMore || !hasMore) return;
+    final requestId = _requestId;
     loadingMore = true;
     moreError = null;
     notifyListeners();
@@ -71,13 +79,21 @@ class ProductsController extends ChangeNotifier {
         limit: pageSize,
         token: _token,
       );
-      items.addAll(page.products);
+      if (_requestId != requestId) return;
+      final existingIds = items.map((p) => p.id).toSet();
+      final newProducts = page.products.where(
+        (p) => !existingIds.contains(p.id),
+      );
+      items.addAll(newProducts);
       _total = page.total;
     } on ApiException catch (e) {
+      if (_requestId != requestId) return;
       moreError = e.message;
     } finally {
-      loadingMore = false;
-      notifyListeners();
+      if (_requestId == requestId) {
+        loadingMore = false;
+        notifyListeners();
+      }
     }
   }
 }
